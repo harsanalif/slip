@@ -5,18 +5,24 @@ class Games {
 	}
 	init(){
 		score = 0;
+		enemyPassed = 0;
 		playerDirection = 0;
 		playerPower = 0;
+		playerMaxPower = 0;
 		enemySpawnLimit = canvas.height*-0.8;
 		playerState = "direction";
 		
-		player = new Entity(8, canvas.width/2, canvas.height-100);
+		player = new Entity(5, canvas.width/2, canvas.height-100);
 		enemyArr = [];
 		for(var i=0;i<50;i++){
 			var enemy = new Entity(6+Math.random()*2, Math.random()*canvas.width, Math.random()*canvas.height*1.5 - canvas.height*0.8);
 			enemy.isPassed = false;
 			enemy.isClose = false;
 			enemyArr.push(enemy);
+		}
+		playerPosArr = [];
+		for(var i=0;i<10;i++){
+			playerPosArr.push({pos:{x:player.pos.x, y:player.pos.y}, radius:player.radius});
 		}
 		
 		sequence.play();
@@ -41,16 +47,33 @@ class Games {
 				playerAngle *= -1;
 			}
 		}else if(playerState == "move"){
+			
 			playerPower -= Math.abs(0.1)*delta*0.5;
 			
+			var coef = easeOutSine(playerPower/playerMaxPower);
+			
 			var angle = ((playerDirection-90)*Math.PI/180);
-			var moveX = Math.cos(angle)*2;
-			var moveY = -Math.sin(angle)*2;
+			var moveX = Math.cos(angle)*2*coef;
+			var moveY = -Math.sin(angle)*2*coef;
+			
 			enemySpawnLimit += moveY;
 			
 			player.pos.x += moveX;
 			if(player.pos.x < player.radius) player.pos.x = player.radius;
 			else if(player.pos.x > canvas.width-player.radius) player.pos.x = canvas.width-player.radius;
+			
+			for(var i = playerPosArr.length-1;i>=0;i--){
+				if(i == 0){
+					playerPosArr[i].pos.x = player.pos.x;
+					playerPosArr[i].pos.y = player.pos.y;
+					playerPosArr[i].radius = player.radius;
+				}else{
+					playerPosArr[i].pos.x = playerPosArr[i-1].pos.x;
+					playerPosArr[i].pos.y = playerPosArr[i-1].pos.y+moveY*(i/10);
+					playerPosArr[i].radius = playerPosArr[i-1].radius;
+				}
+			}
+			
 			for(var i=0;i<enemyArr.length;i++){
 				enemyArr[i].pos.y += moveY;
 				
@@ -67,11 +90,16 @@ class Games {
 					
 					if(isClose(player, enemyArr[i]) && enemyArr[i].isClose == false){
 						enemyArr[i].isClose = true;
-						score++;
+						score+=5;
 						playerLimitAlphaClose = 1;
 					}else{
-						score+=5;
+						score+=1;
 						playerLimitAlpha = 1;
+					}
+					
+					enemyPassed++;
+					if(enemyPassed % 15 == 0){
+						player.radius++;
 					}
 				}
 			}
@@ -125,12 +153,12 @@ class Games {
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
 		for(var i=0;i<enemyArr.length;i++){
-			if(enemyArr[i].isPassed) this.drawEntity(enemyArr[i], "#0095DD");
-			else this.drawEntity(enemyArr[i], "#DD0000");
+			if(enemyArr[i].isPassed) this.drawEntityEnemy(enemyArr[i], "#0095DD");
+			else this.drawEntityEnemy(enemyArr[i], "#DD0000");
 			
 			if(enemyArr[i].isClose){
 				ctx.globalAlpha = playerLimitAlphaClose;
-				ctx.fillText("CLOSE!", enemyArr[i].pos.x, enemyArr[i].pos.y-20);
+				ctx.fillText("CLOSE! +5", enemyArr[i].pos.x, enemyArr[i].pos.y-20);
 				ctx.globalAlpha = 1;
 			}
 		}
@@ -197,6 +225,11 @@ class Games {
 		ctx.restore();
 		
 		this.drawEntity(player, "#0095DD");
+		for(var i = playerPosArr.length-1;i>=0;i--){
+			ctx.globalAlpha = 1-(i/playerPosArr.length);
+			this.drawEntity(playerPosArr[i], "#0095DD");
+		}
+		ctx.globalAlpha = 1;
 		
 		if(playerState == "gameover"){
 			ctx.beginPath();
@@ -214,7 +247,7 @@ class Games {
 			ctx.fillStyle = "#FFFFFF";
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
-			ctx.fillText("SCORE: "+score, canvas.width*0.5, canvas.height*0.8);
+			ctx.fillText("SCORE: "+score, canvas.width*0.5, canvas.height*0.675);
 			
 			ctx.font = "24px Courier";
 			ctx.fillStyle = "#FFFFFF";
@@ -239,6 +272,7 @@ class Games {
 	}
 	onPointerUp(e){
 		if(playerState == "charge"){
+			playerMaxPower = playerPower;
 			playerState = "move";
 			launchSfx();
 			isFirstTime = false;
@@ -256,11 +290,30 @@ class Games {
         ctx.fill();
         ctx.closePath();
 	}
+	drawEntityEnemy(entity, color){
+        ctx.beginPath();
+		ctx.moveTo(entity.pos.x, entity.pos.y-entity.radius);
+		ctx.lineTo(entity.pos.x+entity.radius, entity.pos.y);
+		ctx.lineTo(entity.pos.x, entity.pos.y+entity.radius);
+		ctx.lineTo(entity.pos.x-entity.radius, entity.pos.y);
+		ctx.lineTo(entity.pos.x, entity.pos.y-entity.radius);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.closePath();
+	}
 }
 
 class Entity{
 	constructor(radius, posX, posY){
 		this.radius = radius;
+		this.pos = {x:posX, y:posY};
+	}
+}
+
+class Effect{
+	constructor(posX, posY, text){
+		this.alpha = 1;
+		this.text = text;
 		this.pos = {x:posX, y:posY};
 	}
 }

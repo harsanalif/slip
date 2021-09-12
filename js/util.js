@@ -84,7 +84,7 @@ function isCollide(entity1, entity2){
 	var difY = pos1.y - pos2.y;
 	
 	var distance = Math.sqrt(difX*difX + difY*difY);
-	return distance <= (entity1.radius + entity2.radius);
+	return distance <= (entity1.radius + entity2.radius - 4);
 }
 
 function isClose(entity1, entity2){
